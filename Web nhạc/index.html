@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>React Music Player</title>
+  
+  <link rel="stylesheet" href="css/style.css">
+  
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    const allPlaylists = [
+      {
+        id: "sontung",
+        name: "Sơn Tùng M-TP Mix",
+        description: "Tuyển tập những bài hát hay nhất",
+        coverImage: "./image/son-tung.jpg",
+        songs: [
+          { title: "Chúng Ta Của Hiện Tại", artist: "Sơn Tùng M-TP", src: "./music/sontungmtp/chung-ta-cua-hien-tai.mp3", cover: "./image/son-tung.jpg"},
+          { title: "Muộn Rồi Mà Sao Còn", artist: "Sơn Tùng M-TP", src: "./music/sontungmtp/muon-roi-sao-ma-con.mp3", cover: "./image/son-tung.jpg"},
+          { title: "Nơi Này Có Anh", artist: "Sơn Tùng M-TP", src: "./music/sontungmtp/noi-nay-co-anh.mp3", cover: "./image/son-tung.jpg"},
+          { title: "Đừng Làm Trái Tim Anh Đau", artist: "Sơn Tùng M-TP", src: "./music/sontungmtp/son-tung-mtp-Dung-lam-trai-tim-anh-dau.mp3", cover: "./image/son-tung.jpg"},
+        ]
+      },
+      {
+        id: "hieuthuhai",
+        name: "HIEUTHUHAI Top Hits",
+        description: "Nhạc suy hay nhạc quẩy đều có đủ",
+        coverImage: "./image/hieu-thu-hai.jpg",
+        songs: [
+          { title: "Ngủ Một Mình", artist: "HIEUTHUHAI", src: "./music/hieuthuhai/ngu-mot-minh.mp3", cover: "./image/hieu-thu-hai.jpg"},
+          { title: "Không Thể Say", artist: "HIEUTHUHAI", src: "./music/hieuthuhai/khong-the-say.mp3", cover: "./image/hieu-thu-hai.jpg" },
+          { title: "Người im lặng gặp người hay nói", artist: "HIEUTHUHAI", src: "./music/hieuthuhai/nguoi-im-lang-gap-nguoi-hay-noi.mp3", cover: "./image/hieu-thu-hai.jpg" },
+          { title: "Nghe Như Tình Yêu", artist: "HIEUTHUHAI", src: "./music/hieuthuhai/nghe-nhu-tinh-yeu.mp3", cover: "./image/hieu-thu-hai.jpg"},
+        ]
+      }
+    ];
+
+    const MusicPlayer = () => {
+      const [currentView, setCurrentView] = useState("home");
+      const [searchQuery, setSearchQuery] = useState("");
+      
+      // ĐÃ THÊM: State để lưu ca sĩ đang được chọn xem
+      const [selectedArtist, setSelectedArtist] = useState("");
+
+      const [activePlaylistIndex, setActivePlaylistIndex] = useState(0);
+      const [currentSongIndex, setCurrentSongIndex] = useState(0);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [currentTime, setCurrentTime] = useState(0);
+      const [duration, setDuration] = useState(0);
+      const [volume, setVolume] = useState(1);
+      
+      const [isShuffle, setIsShuffle] = useState(false);
+      const [isRepeat, setIsRepeat] = useState(false);
+      
+      const [likedSongs, setLikedSongs] = useState(() => {
+        const savedLikes = localStorage.getItem("myLikedSongs");
+        return savedLikes ? JSON.parse(savedLikes) : [];
+      });
+
+      const audioRef = useRef(null);
+
+      useEffect(() => {
+        localStorage.setItem("myLikedSongs", JSON.stringify(likedSongs));
+      }, [likedSongs]);
+     
+      const currentPlaylist = allPlaylists[activePlaylistIndex];
+      const currentSong = currentPlaylist.songs[currentSongIndex];
+
+      const isLiked = likedSongs.includes(currentSong.title);
+
+      const toggleLike = () => {
+        if (isLiked) {
+          setLikedSongs(likedSongs.filter(song => song !== currentSong.title));
+        } else {
+          setLikedSongs([...likedSongs, currentSong.title]);
+        }
+      };
+
+      const playSpecificSong = (targetTitle) => {
+        for (let pIndex = 0; pIndex < allPlaylists.length; pIndex++) {
+          const playlist = allPlaylists[pIndex];
+          const sIndex = playlist.songs.findIndex(s => s.title === targetTitle);
+          
+          if (sIndex !== -1) {
+            setActivePlaylistIndex(pIndex);
+            setCurrentSongIndex(sIndex);
+            setIsPlaying(true);
+            break; 
+          }
+        }
+      };
+
+      const getArtistByTitle = (targetTitle) => {
+        for (let pIndex = 0; pIndex < allPlaylists.length; pIndex++) {
+          const song = allPlaylists[pIndex].songs.find(s => s.title === targetTitle);
+          if (song) return song.artist;
+        }
+        return "Nghệ sĩ ẩn danh"; 
+      };
+
+      // ĐÃ THÊM: Hàm để chuyển sang trang của ca sĩ
+      const viewArtist = (artistName) => {
+        setSelectedArtist(artistName);
+        setCurrentView("artist");
+      };
+
+      const formatTime = (timeInSeconds) => {
+        if (isNaN(timeInSeconds)) return "0:00";
+        const minutes = Math.floor(timeInSeconds / 60);
+        const seconds = Math.floor(timeInSeconds % 60);
+        return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+      };
+
+      const togglePlayPause = () => {
+        if (isPlaying) {
+          audioRef.current.pause();
+        } else {
+          audioRef.current.play();
+        }
+        setIsPlaying(!isPlaying);
+      };
+
+      const handleNext = () => {
+        let nextIndex;
+        if (isShuffle) {
+          do {
+            nextIndex = Math.floor(Math.random() * currentPlaylist.songs.length);
+          } while (nextIndex === currentSongIndex && currentPlaylist.songs.length > 1); 
+        } else {
+          nextIndex = (currentSongIndex + 1) % currentPlaylist.songs.length;
+        }
+        setCurrentSongIndex(nextIndex);
+        setIsPlaying(true);
+      };
+
+      const handlePrev = () => {
+        const prevIndex = currentSongIndex === 0 ? currentPlaylist.songs.length - 1 : currentSongIndex - 1;
+        setCurrentSongIndex(prevIndex);
+        setIsPlaying(true);
+      };
+
+      const handleSeek = (e) => {
+        const newTime = e.target.value;
+        audioRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+      };
+
+      const handleVolumeChange = (e) => {
+        const newVolume = e.target.value;
+        setVolume(newVolume);
+        audioRef.current.volume = newVolume;
+      };
+
+      const changePlaylist = (index) => {
+        setActivePlaylistIndex(index); 
+        setCurrentSongIndex(0);       
+        setIsPlaying(true);            
+      };
+
+      useEffect(() => {
+        if (isPlaying) {
+          const playPromise = audioRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(error => console.log("Lỗi tự động phát:", error));
+          }
+        }
+      }, [currentSongIndex, activePlaylistIndex]);
+
+      const toggleShuffle = () => setIsShuffle(!isShuffle);
+      const toggleRepeat = () => setIsRepeat(!isRepeat);
+
+      // Logic tìm kiếm
+      let searchResults = [];
+      if (currentView === "search" && searchQuery.trim() !== "") {
+        allPlaylists.forEach(playlist => {
+          playlist.songs.forEach(song => {
+            if (song.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                song.artist.toLowerCase().includes(searchQuery.toLowerCase())) {
+              searchResults.push(song);
+            }
+          });
+        });
+      }
+
+      // ĐÃ THÊM: Logic lọc bài hát của riêng ca sĩ được chọn
+      let artistSongs = [];
+      if (currentView === "artist" && selectedArtist !== "") {
+        allPlaylists.forEach(playlist => {
+          playlist.songs.forEach(song => {
+            // Lọc đúng tên ca sĩ và tránh bị trùng bài hát
+            if (song.artist === selectedArtist && !artistSongs.find(s => s.title === song.title)) {
+              artistSongs.push(song);
+            }
+          });
+        });
+      }
+
+      return (
+        <div className="app-container">
+          
+          <div className="top-section">
+            <div className="sidebar">
+              <h2>🎧 Trực Tuyến</h2>
+              <p 
+                className={currentView === "home" ? "active" : ""} 
+                onClick={() => setCurrentView("home")}
+              >
+                🏠 Trang chủ
+              </p>
+              <p 
+                className={currentView === "search" ? "active" : ""} 
+                onClick={() => { setCurrentView("search"); setSearchQuery(""); }}
+              >
+                🔍 Tìm kiếm
+              </p>
+              <p>📚 Thư viện của bạn</p>
+              <br/>
+              <p>➕ Tạo playlist</p>
+              <p 
+                className={currentView === "liked" ? "active" : ""} 
+                onClick={() => setCurrentView("liked")}
+              >
+                💖 Bài hát đã thích
+              </p>
+            </div>
+
+            <div className="main-content">
+              {currentView === "home" && (
+                <React.Fragment>
+                  <h1>Chào buổi chiều</h1>
+                  <div className="playlists-grid">
+                    {allPlaylists.map((playlist, index) => (
+                      <div 
+                        key={playlist.id} 
+                        className={`playlist-card ${activePlaylistIndex === index ? 'active' : ''}`}
+                        onClick={() => changePlaylist(index)}
+                      >
+                        <img src={playlist.coverImage} alt={playlist.name} />
+                        <h3>{playlist.name}</h3>
+                        <p>{playlist.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </React.Fragment>
+              )}
+
+              {currentView === "search" && (
+                <div style={{ padding: "20px" }}>
+                  <input 
+                    type="text" 
+                    placeholder="Bạn muốn nghe gì?" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoFocus
+                    style={{
+                      width: "100%",
+                      maxWidth: "400px",
+                      padding: "15px 20px",
+                      borderRadius: "30px",
+                      border: "none",
+                      outline: "none",
+                      fontSize: "16px",
+                      backgroundColor: "#242424",
+                      color: "#fff",
+                      marginBottom: "30px"
+                    }}
+                  />
+                  
+                  {searchQuery.trim() === "" ? (
+                    <p style={{ color: "#b3b3b3", fontSize: "16px" }}>
+                      Hãy nhập tên bài hát hoặc ca sĩ để tìm kiếm nhé! 🎶
+                    </p>
+                  ) : searchResults.length === 0 ? (
+                    <p style={{ color: "#b3b3b3", fontSize: "16px" }}>
+                      Không tìm thấy kết quả nào cho "{searchQuery}" 😢
+                    </p>
+                  ) : (
+                    <div>
+                      <h2 style={{ marginBottom: "20px", fontSize: "1.5rem" }}>Kết quả hàng đầu</h2>
+                      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                        {searchResults.map((song, index) => (
+                          <li 
+                            key={index} 
+                            onClick={() => playSpecificSong(song.title)}
+                            style={{ 
+                              padding: "12px 20px", borderBottom: "1px solid #282828", 
+                              display: "flex", alignItems: "center", gap: "15px",
+                              backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "5px",
+                              marginBottom: "8px", cursor: "pointer", transition: "background 0.3s"
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.02)"}
+                          >
+                            <img src={song.cover} alt="Cover" style={{ width: "45px", height: "45px", borderRadius: "5px" }} />
+                            
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                              <span style={{ fontSize: "16px", fontWeight: "500", color: "#fff" }}>
+                                {song.title}
+                              </span>
+                              {/* ĐÃ SỬA: Cho phép click vào tên ca sĩ trong Tìm Kiếm */}
+                              <span 
+                                style={{ fontSize: "13px", color: "#b3b3b3", cursor: "pointer", textDecoration: "underline" }}
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Không cho kích hoạt tính năng click phát bài hát
+                                  viewArtist(song.artist);
+                                }}
+                                title={`Xem tất cả bài hát của ${song.artist}`}
+                              >
+                                {song.artist}
+                              </span>
+                            </div>
+
+                            <span style={{ marginLeft: "auto", fontSize: "14px", color: "#1db954", fontWeight: "bold" }}>
+                              ▶ Phát ngay
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {currentView === "liked" && (
+                <div style={{ padding: "20px" }}>
+                  <h1 style={{ marginBottom: "30px", fontSize: "2rem" }}>💖 Bài hát đã thích</h1>
+                  
+                  {likedSongs.length === 0 ? (
+                    <p style={{ color: "#b3b3b3", fontSize: "16px" }}>
+                      Bạn chưa thả tim bài hát nào. Hãy quay lại Trang chủ, nghe nhạc và thả tim nhé! 💚
+                    </p>
+                  ) : (
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      {likedSongs.map((songTitle, index) => (
+                        <li 
+                          key={index} 
+                          onClick={() => playSpecificSong(songTitle)}
+                          style={{ 
+                            padding: "12px 20px", borderBottom: "1px solid #282828", 
+                            display: "flex", alignItems: "center", gap: "15px",
+                            backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "5px",
+                            marginBottom: "8px", cursor: "pointer", transition: "background 0.3s"
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
+                          onMouseOut={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.02)"}
+                        >
+                          <span style={{ fontSize: "20px" }}>💚</span> 
+                          
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <span style={{ fontSize: "16px", fontWeight: "500", color: "#fff" }}>
+                              {songTitle}
+                            </span>
+                            {/* ĐÃ SỬA: Cho phép click vào tên ca sĩ trong Bài Hát Đã Thích */}
+                            <span 
+                              style={{ fontSize: "13px", color: "#b3b3b3", cursor: "pointer", textDecoration: "underline" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                viewArtist(getArtistByTitle(songTitle));
+                              }}
+                              title={`Xem tất cả bài hát của ${getArtistByTitle(songTitle)}`}
+                            >
+                              {getArtistByTitle(songTitle)}
+                            </span>
+                          </div>
+
+                          <span style={{ marginLeft: "auto", fontSize: "14px", color: "#1db954", fontWeight: "bold" }}>
+                            ▶ Phát ngay
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {/* ĐÃ THÊM: TRANG HIỂN THỊ DANH SÁCH BÀI HÁT CỦA CA SĨ */}
+              {currentView === "artist" && (
+                <div style={{ padding: "20px" }}>
+                  <h1 style={{ marginBottom: "10px", fontSize: "2.5rem" }}>🎤 {selectedArtist}</h1>
+                  <p style={{ color: "#b3b3b3", marginBottom: "30px", fontSize: "16px" }}>
+                    Tất cả các bài hát
+                  </p>
+                  
+                  <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                    {artistSongs.map((song, index) => (
+                      <li 
+                        key={index} 
+                        onClick={() => playSpecificSong(song.title)}
+                        style={{ 
+                          padding: "12px 20px", borderBottom: "1px solid #282828", 
+                          display: "flex", alignItems: "center", gap: "15px",
+                          backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "5px",
+                          marginBottom: "8px", cursor: "pointer", transition: "background 0.3s"
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.02)"}
+                      >
+                        <img src={song.cover} alt="Cover" style={{ width: "45px", height: "45px", borderRadius: "5px" }} />
+                        <span style={{ fontSize: "16px", fontWeight: "500", color: "#fff" }}>
+                          {song.title}
+                        </span>
+                        <span style={{ marginLeft: "auto", fontSize: "14px", color: "#1db954", fontWeight: "bold" }}>
+                          ▶ Phát ngay
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="player-bar">
+            <div className="track-info">
+              <img src={currentSong.cover} alt="Cover" className="cover-img" />
+              <div>
+                <h4>{currentSong.title}</h4>
+                {/* ĐÃ SỬA: Bấm vào ca sĩ ở dưới thanh Player cũng mở luôn trang ca sĩ đó */}
+                <p 
+                  style={{ cursor: "pointer", textDecoration: "underline" }}
+                  onClick={() => viewArtist(currentSong.artist)}
+                  title={`Xem tất cả bài hát của ${currentSong.artist}`}
+                >
+                  {currentSong.artist}
+                </p>
+              </div>
+              
+              <button 
+                className="like-btn" 
+                onClick={toggleLike}
+                title="Yêu thích"
+              >
+                {isLiked ? "💚" : "🤍"}
+              </button>
+            </div>
+
+            <div className="controls">
+              <div className="buttons">
+                <button 
+                  className={`btn-icon ${isShuffle ? 'active-control' : ''}`} 
+                  onClick={toggleShuffle}
+                >
+                  🔀
+                </button>
+                
+                <button className="btn-icon" onClick={handlePrev}>⏮</button>
+                
+                <button className="btn-play" onClick={togglePlayPause}>
+                  {isPlaying ? "⏸" : "▶"}
+                </button>
+                
+                <button className="btn-icon" onClick={handleNext}>⏭</button>
+                
+                <button 
+                  className={`btn-icon ${isRepeat ? 'active-control' : ''}`} 
+                  onClick={toggleRepeat}
+                >
+                  🔂
+                </button>
+              </div>
+              
+              <div className="progress-container">
+                <span>{formatTime(currentTime)}</span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max={duration || 0} 
+                  value={currentTime} 
+                  onChange={handleSeek}
+                  className="progress-bar-input"
+                />
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+
+            <div className="volume-controls">
+              <span>{volume === "0" ? "🔇" : "🔊"}</span>
+              <input 
+                type="range" 
+                min="0" 
+                max="1" 
+                step="0.01" 
+                value={volume} 
+                onChange={handleVolumeChange}
+                className="volume-slider"
+              />
+            </div>
+          </div>
+
+          <audio 
+            ref={audioRef} 
+            src={currentSong.src} 
+            onTimeUpdate={() => setCurrentTime(audioRef.current.currentTime)}
+            onLoadedMetadata={() => setDuration(audioRef.current.duration)}
+            onEnded={() => {
+              if (isRepeat) {
+                audioRef.current.currentTime = 0;
+                audioRef.current.play();
+              } else {
+                handleNext();
+              }
+            }}
+          />
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<MusicPlayer />);
+  </script>
+</body>
+</html>
