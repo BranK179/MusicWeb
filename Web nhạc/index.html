@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>React Music Player - Persistent Playlists</title>
+  <title>React Music Player - Your Library</title>
   <link rel="stylesheet" href="css/style.css">
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
@@ -42,13 +42,11 @@
     ];
 
     const MusicPlayer = () => {
-      // 1. LƯU TRỮ VÀ KHỞI TẠO PLAYLISTS TỪ LOCAL STORAGE
       const [playlists, setPlaylists] = useState(() => {
         const savedPlaylists = localStorage.getItem("myAppPlaylists");
         return savedPlaylists ? JSON.parse(savedPlaylists) : allPlaylists;
       });
 
-      // Theo dõi playlists, hễ có thay đổi (tạo mới, thêm bài) là lưu vào LocalStorage ngay
       useEffect(() => {
         localStorage.setItem("myAppPlaylists", JSON.stringify(playlists));
       }, [playlists]);
@@ -122,6 +120,23 @@
         });
         setPlaylists(updatedPlaylists);
         setIsAddSongModalOpen(false);
+      };
+
+      const handleRemoveSongFromPlaylist = (e, playlistId, songTitle) => {
+        e.stopPropagation();
+        
+        if(confirm(`Bạn có chắc muốn xóa bài "${songTitle}" khỏi playlist này?`)) {
+          const updatedPlaylists = playlists.map(pl => {
+            if (pl.id === playlistId) {
+              return {
+                ...pl,
+                songs: pl.songs.filter(s => s.title !== songTitle)
+              };
+            }
+            return pl;
+          });
+          setPlaylists(updatedPlaylists);
+        }
       };
 
       const playSpecificSong = (targetTitle) => {
@@ -244,10 +259,21 @@
               <h2>🎧 Trực Tuyến</h2>
               <p className={currentView === "home" ? "active" : ""} onClick={() => setCurrentView("home")}>🏠 Trang chủ</p>
               <p className={currentView === "search" ? "active" : ""} onClick={() => { setCurrentView("search"); setSearchQuery(""); }}>🔍 Tìm kiếm</p>
-              <p>📚 Thư viện của bạn</p>
+              
               <br/>
-              <p style={{ cursor: "pointer" }} onClick={() => setIsModalOpen(true)}>➕ Tạo playlist</p>
-              <p className={currentView === "liked" ? "active" : ""} onClick={() => setCurrentView("liked")}>💖 Bài hát đã thích</p>
+              {/* TÍNH NĂNG MỚI: Biến Thư viện thành một nút bấm */}
+              <p 
+                className={currentView === "library" ? "active" : ""} 
+                onClick={() => setCurrentView("library")} 
+                style={{ cursor: "pointer", fontWeight: "bold" }}
+              >
+                📚 Thư viện của bạn
+              </p>
+              
+              <div style={{ marginLeft: "20px", marginTop: "10px", fontSize: "14px" }}>
+                <p style={{ cursor: "pointer", marginBottom: "10px" }} onClick={() => setIsModalOpen(true)}>➕ Tạo playlist</p>
+                <p className={currentView === "liked" ? "active" : ""} onClick={() => setCurrentView("liked")}>💖 Bài hát đã thích</p>
+              </div>
        
               {isModalOpen && (
                 <div className="modal-overlay" onClick={(e) => { if (e.target.className === 'modal-overlay') setIsModalOpen(false); }}>
@@ -270,6 +296,8 @@
                           setPlaylists([...playlists, newPlaylist]);
                           setIsModalOpen(false);
                           setNewPlaylistName("");
+                          // Chuyển view sang thư viện để thấy playlist vừa tạo
+                          setCurrentView("library");
                         }
                       }}>Tạo</button>
                     </div>
@@ -316,6 +344,47 @@
                 </React.Fragment>
               )}
 
+              {/* TÍNH NĂNG MỚI: Giao diện Thư viện của bạn */}
+              {currentView === "library" && (
+                <div style={{ padding: "20px" }}>
+                  <h1 style={{ marginBottom: "30px", fontSize: "2.5rem" }}>Thư viện của bạn</h1>
+                  
+                  <div className="playlists-grid">
+                    {/* Thẻ đặc biệt cho Bài hát đã thích */}
+                    <div 
+                      className="playlist-card" 
+                      onClick={() => setCurrentView("liked")} 
+                      style={{ 
+                        background: "linear-gradient(135deg, #450af5, #1db954)", 
+                        display: "flex", 
+                        flexDirection: "column", 
+                        justifyContent: "flex-end",
+                        padding: "20px",
+                        minHeight: "220px"
+                      }}
+                    >
+                      <h2 style={{ color: "#fff", fontSize: "2rem", margin: "0 0 10px 0" }}>Bài hát đã thích</h2>
+                      <p style={{ color: "#fff", fontSize: "16px", margin: 0, opacity: 0.9 }}>
+                        {likedSongs.length} bài hát
+                      </p>
+                    </div>
+
+                    {/* Danh sách các playlist người dùng tự tạo */}
+                    {customPlaylists.map((playlist) => {
+                      // Tìm index thật của playlist trong mảng gốc để mở cho đúng
+                      const realIndex = playlists.findIndex(p => p.id === playlist.id);
+                      return (
+                        <div key={playlist.id} className="playlist-card" onClick={() => openPlaylist(realIndex)} >
+                          <img src={playlist.coverImage} alt={playlist.name} />
+                          <h3>{playlist.name}</h3>
+                          <p>Playlist cá nhân</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {currentView === "playlist" && selectedPlaylistIndex !== null && (
                 <div style={{ padding: "20px" }}>
                   <div style={{ display: "flex", gap: "24px", marginBottom: "30px", alignItems: "flex-end" }}>
@@ -326,14 +395,13 @@
                       <p style={{ color: "#b3b3b3", fontSize: "15px", marginBottom: "20px" }}>{playlists[selectedPlaylistIndex].description}</p>
                       <button onClick={() => { if(playlists[selectedPlaylistIndex].songs.length === 0) { alert("Playlist trống!"); return; } setActivePlaylistIndex(selectedPlaylistIndex); setCurrentSongIndex(0); setIsPlaying(true); }} style={{ padding: "15px 40px", borderRadius: "30px", backgroundColor: "#1db954", color: "#000", border: "none", fontWeight: "bold", fontSize: "16px", cursor: "pointer" }}>▶ Phát tất cả</button>
                       
-                      {/* Nút Xóa Playlist (Chỉ hiện cho playlist tự tạo) */}
                       {playlists[selectedPlaylistIndex].id.startsWith("custom_") && (
                         <button 
                           onClick={() => {
                             if(confirm("Bạn có chắc muốn xóa playlist này không?")) {
                               const updated = playlists.filter((_, i) => i !== selectedPlaylistIndex);
                               setPlaylists(updated);
-                              setCurrentView("home");
+                              setCurrentView("library"); // Xóa xong thì quay về thư viện
                             }
                           }}
                           style={{ marginLeft: "15px", padding: "15px 20px", borderRadius: "30px", backgroundColor: "transparent", color: "#fff", border: "1px solid #555", cursor: "pointer" }}
@@ -368,7 +436,18 @@
                                   </div>
                               </div>
                               </td>
-                              <td style={{ padding: "15px", textAlign: "right", color: "#1db954" }}>▶</td>
+                              <td style={{ padding: "15px", textAlign: "right", color: "#1db954" }}>
+                                {playlists[selectedPlaylistIndex].id.startsWith("custom_") && (
+                                  <button
+                                    onClick={(e) => handleRemoveSongFromPlaylist(e, playlists[selectedPlaylistIndex].id, song.title)}
+                                    style={{ marginRight: "15px", background: "none", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: "14px" }}
+                                    title="Xóa khỏi playlist"
+                                  >
+                                    ❌
+                                  </button>
+                                )}
+                                ▶
+                              </td>
                           </tr>
                           ))}
                       </tbody>
@@ -377,7 +456,6 @@
                 </div>
               )}
 
-              {/* Các view Search, Liked, Artist giữ nguyên như cũ... */}
               {currentView === "search" && (
                 <div style={{ padding: "20px" }}>
                   <input type="text" placeholder="Bạn muốn nghe gì?" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} autoFocus style={{ width: "100%", maxWidth: "400px", padding: "15px 20px", borderRadius: "30px", border: "none", backgroundColor: "#242424", color: "#fff" }} />
