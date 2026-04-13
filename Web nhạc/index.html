@@ -2,6 +2,8 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
   <title>React Music Player</title>
   
   <link rel="stylesheet" href="css/style.css">
@@ -43,22 +45,30 @@
     ];
 
     const MusicPlayer = () => {
+      // 1. Quản lý danh sách playlist (để có thể thêm playlist mới)
+      const [playlists, setPlaylists] = useState(allPlaylists);
+
+      // 2. Quản lý điều hướng và hiển thị
       const [currentView, setCurrentView] = useState("home");
       const [searchQuery, setSearchQuery] = useState("");
-      
-      // ĐÃ THÊM: State để lưu ca sĩ đang được chọn xem
+      const [selectedPlaylistIndex, setSelectedPlaylistIndex] = useState(null);
       const [selectedArtist, setSelectedArtist] = useState("");
-
+      
+      // 3. Quản lý Modal tạo Playlist
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [newPlaylistName, setNewPlaylistName] = useState("");
+      
+      // 4. Quản lý trình phát nhạc (Audio Player)
       const [activePlaylistIndex, setActivePlaylistIndex] = useState(0);
       const [currentSongIndex, setCurrentSongIndex] = useState(0);
       const [isPlaying, setIsPlaying] = useState(false);
       const [currentTime, setCurrentTime] = useState(0);
       const [duration, setDuration] = useState(0);
       const [volume, setVolume] = useState(1);
-      
       const [isShuffle, setIsShuffle] = useState(false);
       const [isRepeat, setIsRepeat] = useState(false);
       
+      // 5. Quản lý bài hát yêu thích
       const [likedSongs, setLikedSongs] = useState(() => {
         const savedLikes = localStorage.getItem("myLikedSongs");
         return savedLikes ? JSON.parse(savedLikes) : [];
@@ -69,13 +79,25 @@
       useEffect(() => {
         localStorage.setItem("myLikedSongs", JSON.stringify(likedSongs));
       }, [likedSongs]);
-     
-      const currentPlaylist = allPlaylists[activePlaylistIndex];
-      const currentSong = currentPlaylist.songs[currentSongIndex];
+
+      const openPlaylist = (index) => {
+        setSelectedPlaylistIndex(index);
+        setCurrentView("playlist");
+      };
+
+      // Xử lý an toàn khi playlist chưa có bài hát nào
+      const currentPlaylist = playlists[activePlaylistIndex];
+      const currentSong = currentPlaylist.songs[currentSongIndex] || {
+        title: "Chưa có bài hát",
+        artist: "Trống",
+        src: "",
+        cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=200&auto=format&fit=crop"
+      };
 
       const isLiked = likedSongs.includes(currentSong.title);
 
       const toggleLike = () => {
+        if (currentSong.title === "Chưa có bài hát") return;
         if (isLiked) {
           setLikedSongs(likedSongs.filter(song => song !== currentSong.title));
         } else {
@@ -84,8 +106,8 @@
       };
 
       const playSpecificSong = (targetTitle) => {
-        for (let pIndex = 0; pIndex < allPlaylists.length; pIndex++) {
-          const playlist = allPlaylists[pIndex];
+        for (let pIndex = 0; pIndex < playlists.length; pIndex++) {
+          const playlist = playlists[pIndex];
           const sIndex = playlist.songs.findIndex(s => s.title === targetTitle);
           
           if (sIndex !== -1) {
@@ -98,14 +120,13 @@
       };
 
       const getArtistByTitle = (targetTitle) => {
-        for (let pIndex = 0; pIndex < allPlaylists.length; pIndex++) {
-          const song = allPlaylists[pIndex].songs.find(s => s.title === targetTitle);
+        for (let pIndex = 0; pIndex < playlists.length; pIndex++) {
+          const song = playlists[pIndex].songs.find(s => s.title === targetTitle);
           if (song) return song.artist;
         }
         return "Nghệ sĩ ẩn danh"; 
       };
 
-      // ĐÃ THÊM: Hàm để chuyển sang trang của ca sĩ
       const viewArtist = (artistName) => {
         setSelectedArtist(artistName);
         setCurrentView("artist");
@@ -119,6 +140,7 @@
       };
 
       const togglePlayPause = () => {
+        if (!currentSong.src) return;
         if (isPlaying) {
           audioRef.current.pause();
         } else {
@@ -128,11 +150,12 @@
       };
 
       const handleNext = () => {
+        if (currentPlaylist.songs.length <= 1) return;
         let nextIndex;
         if (isShuffle) {
           do {
             nextIndex = Math.floor(Math.random() * currentPlaylist.songs.length);
-          } while (nextIndex === currentSongIndex && currentPlaylist.songs.length > 1); 
+          } while (nextIndex === currentSongIndex); 
         } else {
           nextIndex = (currentSongIndex + 1) % currentPlaylist.songs.length;
         }
@@ -141,6 +164,7 @@
       };
 
       const handlePrev = () => {
+        if (currentPlaylist.songs.length <= 1) return;
         const prevIndex = currentSongIndex === 0 ? currentPlaylist.songs.length - 1 : currentSongIndex - 1;
         setCurrentSongIndex(prevIndex);
         setIsPlaying(true);
@@ -158,14 +182,8 @@
         audioRef.current.volume = newVolume;
       };
 
-      const changePlaylist = (index) => {
-        setActivePlaylistIndex(index); 
-        setCurrentSongIndex(0);       
-        setIsPlaying(true);            
-      };
-
       useEffect(() => {
-        if (isPlaying) {
+        if (isPlaying && currentSong.src) {
           const playPromise = audioRef.current.play();
           if (playPromise !== undefined) {
             playPromise.catch(error => console.log("Lỗi tự động phát:", error));
@@ -176,10 +194,9 @@
       const toggleShuffle = () => setIsShuffle(!isShuffle);
       const toggleRepeat = () => setIsRepeat(!isRepeat);
 
-      // Logic tìm kiếm
       let searchResults = [];
       if (currentView === "search" && searchQuery.trim() !== "") {
-        allPlaylists.forEach(playlist => {
+        playlists.forEach(playlist => {
           playlist.songs.forEach(song => {
             if (song.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                 song.artist.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -189,12 +206,10 @@
         });
       }
 
-      // ĐÃ THÊM: Logic lọc bài hát của riêng ca sĩ được chọn
       let artistSongs = [];
       if (currentView === "artist" && selectedArtist !== "") {
-        allPlaylists.forEach(playlist => {
+        playlists.forEach(playlist => {
           playlist.songs.forEach(song => {
-            // Lọc đúng tên ca sĩ và tránh bị trùng bài hát
             if (song.artist === selectedArtist && !artistSongs.find(s => s.title === song.title)) {
               artistSongs.push(song);
             }
@@ -222,13 +237,73 @@
               </p>
               <p>📚 Thư viện của bạn</p>
               <br/>
-              <p>➕ Tạo playlist</p>
+              <p 
+                style={{ cursor: "pointer" }} 
+                onClick={() => setIsModalOpen(true)}
+              >
+                ➕ Tạo playlist
+              </p>
               <p 
                 className={currentView === "liked" ? "active" : ""} 
                 onClick={() => setCurrentView("liked")}
               >
                 💖 Bài hát đã thích
               </p>
+       
+          {isModalOpen && (
+            <div 
+              className="modal-overlay" 
+              onClick={(e) => {
+                if (e.target.className === 'modal-overlay') {
+                  setIsModalOpen(false);
+                }
+              }}
+            >
+              <div className="modal-box">
+                <h3>Tạo Playlist Mới</h3>
+                <input 
+                  type="text" 
+                  placeholder="Nhập tên playlist của bạn..." 
+                  value={newPlaylistName}
+                  onChange={(e) => setNewPlaylistName(e.target.value)}
+                  autoFocus
+                />
+                <div className="modal-actions">
+                  <button 
+                    id="btn-cancel" 
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setNewPlaylistName(""); 
+                    }}
+                  >
+                    Hủy
+                  </button>
+                  <button 
+                    id="btn-create" 
+                    onClick={() => {
+                      if (newPlaylistName.trim() === '') {
+                        alert('Bạn chưa nhập tên playlist kìa!');
+                      } else {
+                        const newPlaylist = {
+                          id: "custom_" + Date.now(),
+                          name: newPlaylistName,
+                          description: "Playlist do tôi tạo",
+                          coverImage: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=200&auto=format&fit=crop", 
+                          songs: [] 
+                        };
+
+                        setPlaylists([...playlists, newPlaylist]);
+                        setIsModalOpen(false);
+                        setNewPlaylistName("");
+                      }
+                    }}
+                  >
+                    Tạo
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
             </div>
 
             <div className="main-content">
@@ -236,11 +311,11 @@
                 <React.Fragment>
                   <h1>Chào buổi chiều</h1>
                   <div className="playlists-grid">
-                    {allPlaylists.map((playlist, index) => (
+                    {playlists.map((playlist, index) => (
                       <div 
                         key={playlist.id} 
                         className={`playlist-card ${activePlaylistIndex === index ? 'active' : ''}`}
-                        onClick={() => changePlaylist(index)}
+                        onClick={() => openPlaylist(index)} 
                       >
                         <img src={playlist.coverImage} alt={playlist.name} />
                         <h3>{playlist.name}</h3>
@@ -251,6 +326,98 @@
                 </React.Fragment>
               )}
 
+      
+{currentView === "playlist" && selectedPlaylistIndex !== null && (
+  <div style={{ padding: "20px" }}>
+    <div style={{ display: "flex", gap: "24px", marginBottom: "30px", alignItems: "flex-end" }}>
+      <img 
+        src={playlists[selectedPlaylistIndex].coverImage} 
+        alt="Cover" 
+        style={{ width: "220px", height: "220px", borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)", objectFit: "cover" }} 
+      />
+      <div>
+        <p style={{ textTransform: "uppercase", fontSize: "13px", fontWeight: "bold", color: "#fff", marginBottom: "8px" }}>Playlist</p>
+        <h1 style={{ fontSize: "3.5rem", margin: "0 0 15px 0", color: "#fff", fontWeight: "900" }}>
+          {playlists[selectedPlaylistIndex].name}
+        </h1>
+        <p style={{ color: "#b3b3b3", fontSize: "15px", marginBottom: "20px" }}>
+          {playlists[selectedPlaylistIndex].description}
+        </p>
+        <button 
+          onClick={() => {
+            if(playlists[selectedPlaylistIndex].songs.length === 0) {
+              alert("Playlist này chưa có bài hát nào!");
+              return;
+            }
+            setActivePlaylistIndex(selectedPlaylistIndex);
+            setCurrentSongIndex(0);
+            setIsPlaying(true);
+          }}
+          style={{ padding: "15px 40px", borderRadius: "30px", backgroundColor: "#1db954", color: "#000", border: "none", fontWeight: "bold", fontSize: "16px", cursor: "pointer", transition: "transform 0.2s" }}
+          onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+          onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
+        >
+          ▶ Phát tất cả
+        </button>
+      </div>
+    </div>
+
+    {playlists[selectedPlaylistIndex].songs.length === 0 ? (
+        <p style={{ color: "#b3b3b3", fontSize: "16px", textAlign: "center", marginTop: "50px" }}>
+            Playlist này chưa có bài hát nào.
+        </p>
+    ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", color: "#b3b3b3" }}>
+        <thead>
+            <tr style={{ borderBottom: "1px solid #282828" }}>
+            <th style={{ padding: "10px 15px", width: "40px", fontWeight: "normal" }}>#</th>
+            <th style={{ padding: "10px 15px", fontWeight: "normal" }}>Tiêu đề</th>
+            <th style={{ padding: "10px 15px", textAlign: "right", fontWeight: "normal" }}>Nghe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {playlists[selectedPlaylistIndex].songs.map((song, idx) => (
+            <tr 
+                key={idx} 
+                style={{ borderBottom: "1px solid #2a2a2a", cursor: "pointer", transition: "background 0.3s" }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                onClick={() => {
+                setActivePlaylistIndex(selectedPlaylistIndex);
+                setCurrentSongIndex(idx);
+                setIsPlaying(true);
+                }}
+            >
+                <td style={{ padding: "15px" }}>{idx + 1}</td>
+                <td style={{ padding: "15px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                    <img src={song.cover} alt="cover" style={{ width: "45px", height: "45px", borderRadius: "4px" }} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ color: "#fff", fontSize: "16px", fontWeight: "500" }}>{song.title}</span>
+                    <span 
+                        style={{ fontSize: "13px", cursor: "pointer" }}
+                        onClick={(e) => {
+                        e.stopPropagation();
+                        viewArtist(song.artist);
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.textDecoration = "underline"}
+                        onMouseOut={(e) => e.currentTarget.style.textDecoration = "none"}
+                    >
+                        {song.artist}
+                    </span>
+                    </div>
+                </div>
+                </td>
+                <td style={{ padding: "15px", textAlign: "right", color: "#1db954", fontSize: "14px", fontWeight: "bold" }}>
+                ▶
+                </td>
+            </tr>
+            ))}
+        </tbody>
+        </table>
+    )}
+  </div>
+)}
               {currentView === "search" && (
                 <div style={{ padding: "20px" }}>
                   <input 
@@ -304,11 +471,11 @@
                               <span style={{ fontSize: "16px", fontWeight: "500", color: "#fff" }}>
                                 {song.title}
                               </span>
-                              {/* ĐÃ SỬA: Cho phép click vào tên ca sĩ trong Tìm Kiếm */}
+                              
                               <span 
                                 style={{ fontSize: "13px", color: "#b3b3b3", cursor: "pointer", textDecoration: "underline" }}
                                 onClick={(e) => {
-                                  e.stopPropagation(); // Không cho kích hoạt tính năng click phát bài hát
+                                  e.stopPropagation(); 
                                   viewArtist(song.artist);
                                 }}
                                 title={`Xem tất cả bài hát của ${song.artist}`}
@@ -357,7 +524,7 @@
                             <span style={{ fontSize: "16px", fontWeight: "500", color: "#fff" }}>
                               {songTitle}
                             </span>
-                            {/* ĐÃ SỬA: Cho phép click vào tên ca sĩ trong Bài Hát Đã Thích */}
+                            
                             <span 
                               style={{ fontSize: "13px", color: "#b3b3b3", cursor: "pointer", textDecoration: "underline" }}
                               onClick={(e) => {
@@ -380,7 +547,7 @@
                 </div>
               )}
 
-              {/* ĐÃ THÊM: TRANG HIỂN THỊ DANH SÁCH BÀI HÁT CỦA CA SĨ */}
+              
               {currentView === "artist" && (
                 <div style={{ padding: "20px" }}>
                   <h1 style={{ marginBottom: "10px", fontSize: "2.5rem" }}>🎤 {selectedArtist}</h1>
@@ -419,13 +586,15 @@
 
           <div className="player-bar">
             <div className="track-info">
-              <img src={currentSong.cover} alt="Cover" className="cover-img" />
+              {currentSong.cover && <img src={currentSong.cover} alt="Cover" className="cover-img" />}
               <div>
                 <h4>{currentSong.title}</h4>
-                {/* ĐÃ SỬA: Bấm vào ca sĩ ở dưới thanh Player cũng mở luôn trang ca sĩ đó */}
+
                 <p 
                   style={{ cursor: "pointer", textDecoration: "underline" }}
-                  onClick={() => viewArtist(currentSong.artist)}
+                  onClick={() => {
+                    if(currentSong.artist !== "Trống") viewArtist(currentSong.artist);
+                  }}
                   title={`Xem tất cả bài hát của ${currentSong.artist}`}
                 >
                   {currentSong.artist}
@@ -494,20 +663,22 @@
             </div>
           </div>
 
-          <audio 
-            ref={audioRef} 
-            src={currentSong.src} 
-            onTimeUpdate={() => setCurrentTime(audioRef.current.currentTime)}
-            onLoadedMetadata={() => setDuration(audioRef.current.duration)}
-            onEnded={() => {
-              if (isRepeat) {
-                audioRef.current.currentTime = 0;
-                audioRef.current.play();
-              } else {
-                handleNext();
-              }
-            }}
-          />
+          {currentSong.src && (
+            <audio 
+              ref={audioRef} 
+              src={currentSong.src} 
+              onTimeUpdate={() => setCurrentTime(audioRef.current.currentTime)}
+              onLoadedMetadata={() => setDuration(audioRef.current.duration)}
+              onEnded={() => {
+                if (isRepeat) {
+                  audioRef.current.currentTime = 0;
+                  audioRef.current.play();
+                } else {
+                  handleNext();
+                }
+              }}
+            />
+          )}
         </div>
       );
     };
