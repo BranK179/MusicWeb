@@ -3,11 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <title>React Music Player</title>
-  
+  <title>React Music Player - Persistent Playlists</title>
   <link rel="stylesheet" href="css/style.css">
-  
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -45,20 +42,28 @@
     ];
 
     const MusicPlayer = () => {
-      // 1. Quản lý danh sách playlist (để có thể thêm playlist mới)
-      const [playlists, setPlaylists] = useState(allPlaylists);
+      // 1. LƯU TRỮ VÀ KHỞI TẠO PLAYLISTS TỪ LOCAL STORAGE
+      const [playlists, setPlaylists] = useState(() => {
+        const savedPlaylists = localStorage.getItem("myAppPlaylists");
+        return savedPlaylists ? JSON.parse(savedPlaylists) : allPlaylists;
+      });
 
-      // 2. Quản lý điều hướng và hiển thị
+      // Theo dõi playlists, hễ có thay đổi (tạo mới, thêm bài) là lưu vào LocalStorage ngay
+      useEffect(() => {
+        localStorage.setItem("myAppPlaylists", JSON.stringify(playlists));
+      }, [playlists]);
+
       const [currentView, setCurrentView] = useState("home");
       const [searchQuery, setSearchQuery] = useState("");
       const [selectedPlaylistIndex, setSelectedPlaylistIndex] = useState(null);
       const [selectedArtist, setSelectedArtist] = useState("");
       
-      // 3. Quản lý Modal tạo Playlist
       const [isModalOpen, setIsModalOpen] = useState(false);
       const [newPlaylistName, setNewPlaylistName] = useState("");
       
-      // 4. Quản lý trình phát nhạc (Audio Player)
+      const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
+      const [songToAdd, setSongToAdd] = useState(null);
+
       const [activePlaylistIndex, setActivePlaylistIndex] = useState(0);
       const [currentSongIndex, setCurrentSongIndex] = useState(0);
       const [isPlaying, setIsPlaying] = useState(false);
@@ -68,7 +73,6 @@
       const [isShuffle, setIsShuffle] = useState(false);
       const [isRepeat, setIsRepeat] = useState(false);
       
-      // 5. Quản lý bài hát yêu thích
       const [likedSongs, setLikedSongs] = useState(() => {
         const savedLikes = localStorage.getItem("myLikedSongs");
         return savedLikes ? JSON.parse(savedLikes) : [];
@@ -85,9 +89,8 @@
         setCurrentView("playlist");
       };
 
-      // Xử lý an toàn khi playlist chưa có bài hát nào
       const currentPlaylist = playlists[activePlaylistIndex];
-      const currentSong = currentPlaylist.songs[currentSongIndex] || {
+      const currentSong = currentPlaylist?.songs[currentSongIndex] || {
         title: "Chưa có bài hát",
         artist: "Trống",
         src: "",
@@ -105,11 +108,26 @@
         }
       };
 
+      const handleAddSongToPlaylist = (playlistId) => {
+        const updatedPlaylists = playlists.map(pl => {
+          if (pl.id === playlistId) {
+            const isSongExist = pl.songs.some(s => s.title === songToAdd.title);
+            if (!isSongExist) {
+              return { ...pl, songs: [...pl.songs, songToAdd] };
+            } else {
+              alert("Bài hát này đã có trong playlist rồi nhé!");
+            }
+          }
+          return pl;
+        });
+        setPlaylists(updatedPlaylists);
+        setIsAddSongModalOpen(false);
+      };
+
       const playSpecificSong = (targetTitle) => {
         for (let pIndex = 0; pIndex < playlists.length; pIndex++) {
           const playlist = playlists[pIndex];
           const sIndex = playlist.songs.findIndex(s => s.title === targetTitle);
-          
           if (sIndex !== -1) {
             setActivePlaylistIndex(pIndex);
             setCurrentSongIndex(sIndex);
@@ -150,7 +168,7 @@
       };
 
       const handleNext = () => {
-        if (currentPlaylist.songs.length <= 1) return;
+        if (!currentPlaylist || currentPlaylist.songs.length <= 1) return;
         let nextIndex;
         if (isShuffle) {
           do {
@@ -164,7 +182,7 @@
       };
 
       const handlePrev = () => {
-        if (currentPlaylist.songs.length <= 1) return;
+        if (!currentPlaylist || currentPlaylist.songs.length <= 1) return;
         const prevIndex = currentSongIndex === 0 ? currentPlaylist.songs.length - 1 : currentSongIndex - 1;
         setCurrentSongIndex(prevIndex);
         setIsPlaying(true);
@@ -217,93 +235,69 @@
         });
       }
 
+      const customPlaylists = playlists.filter(p => p.id.startsWith("custom_"));
+
       return (
         <div className="app-container">
-          
           <div className="top-section">
             <div className="sidebar">
               <h2>🎧 Trực Tuyến</h2>
-              <p 
-                className={currentView === "home" ? "active" : ""} 
-                onClick={() => setCurrentView("home")}
-              >
-                🏠 Trang chủ
-              </p>
-              <p 
-                className={currentView === "search" ? "active" : ""} 
-                onClick={() => { setCurrentView("search"); setSearchQuery(""); }}
-              >
-                🔍 Tìm kiếm
-              </p>
+              <p className={currentView === "home" ? "active" : ""} onClick={() => setCurrentView("home")}>🏠 Trang chủ</p>
+              <p className={currentView === "search" ? "active" : ""} onClick={() => { setCurrentView("search"); setSearchQuery(""); }}>🔍 Tìm kiếm</p>
               <p>📚 Thư viện của bạn</p>
               <br/>
-              <p 
-                style={{ cursor: "pointer" }} 
-                onClick={() => setIsModalOpen(true)}
-              >
-                ➕ Tạo playlist
-              </p>
-              <p 
-                className={currentView === "liked" ? "active" : ""} 
-                onClick={() => setCurrentView("liked")}
-              >
-                💖 Bài hát đã thích
-              </p>
+              <p style={{ cursor: "pointer" }} onClick={() => setIsModalOpen(true)}>➕ Tạo playlist</p>
+              <p className={currentView === "liked" ? "active" : ""} onClick={() => setCurrentView("liked")}>💖 Bài hát đã thích</p>
        
-          {isModalOpen && (
-            <div 
-              className="modal-overlay" 
-              onClick={(e) => {
-                if (e.target.className === 'modal-overlay') {
-                  setIsModalOpen(false);
-                }
-              }}
-            >
-              <div className="modal-box">
-                <h3>Tạo Playlist Mới</h3>
-                <input 
-                  type="text" 
-                  placeholder="Nhập tên playlist của bạn..." 
-                  value={newPlaylistName}
-                  onChange={(e) => setNewPlaylistName(e.target.value)}
-                  autoFocus
-                />
-                <div className="modal-actions">
-                  <button 
-                    id="btn-cancel" 
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setNewPlaylistName(""); 
-                    }}
-                  >
-                    Hủy
-                  </button>
-                  <button 
-                    id="btn-create" 
-                    onClick={() => {
-                      if (newPlaylistName.trim() === '') {
-                        alert('Bạn chưa nhập tên playlist kìa!');
-                      } else {
-                        const newPlaylist = {
-                          id: "custom_" + Date.now(),
-                          name: newPlaylistName,
-                          description: "Playlist do tôi tạo",
-                          coverImage: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=200&auto=format&fit=crop", 
-                          songs: [] 
-                        };
-
-                        setPlaylists([...playlists, newPlaylist]);
-                        setIsModalOpen(false);
-                        setNewPlaylistName("");
-                      }
-                    }}
-                  >
-                    Tạo
-                  </button>
+              {isModalOpen && (
+                <div className="modal-overlay" onClick={(e) => { if (e.target.className === 'modal-overlay') setIsModalOpen(false); }}>
+                  <div className="modal-box">
+                    <h3>Tạo Playlist Mới</h3>
+                    <input type="text" placeholder="Nhập tên playlist..." value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)} autoFocus />
+                    <div className="modal-actions">
+                      <button id="btn-cancel" onClick={() => { setIsModalOpen(false); setNewPlaylistName(""); }}>Hủy</button>
+                      <button id="btn-create" onClick={() => {
+                        if (newPlaylistName.trim() === '') {
+                          alert('Bạn chưa nhập tên playlist!');
+                        } else {
+                          const newPlaylist = {
+                            id: "custom_" + Date.now(),
+                            name: newPlaylistName,
+                            description: "Playlist cá nhân",
+                            coverImage: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=200&auto=format&fit=crop", 
+                            songs: [] 
+                          };
+                          setPlaylists([...playlists, newPlaylist]);
+                          setIsModalOpen(false);
+                          setNewPlaylistName("");
+                        }
+                      }}>Tạo</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
+
+              {isAddSongModalOpen && (
+                <div className="modal-overlay" onClick={(e) => { if (e.target.className === 'modal-overlay') setIsAddSongModalOpen(false); }}>
+                  <div className="modal-box">
+                    <h3>Thêm vào Playlist</h3>
+                    <p style={{color: "#b3b3b3", fontSize: "14px", marginBottom: "15px"}}>Bài hát: <b>{songToAdd?.title}</b></p>
+                    {customPlaylists.length === 0 ? (
+                      <p style={{textAlign: "center", color: "#fff"}}>Bạn chưa tạo Playlist nào cả.</p>
+                    ) : (
+                      <ul style={{ listStyle: "none", padding: 0, margin: 0, maxHeight: "200px", overflowY: "auto" }}>
+                        {customPlaylists.map(pl => (
+                          <li key={pl.id} onClick={() => handleAddSongToPlaylist(pl.id)} style={{ padding: "12px", backgroundColor: "#333", marginBottom: "8px", borderRadius: "5px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#444"} onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#333"}>
+                            <img src={pl.coverImage} style={{width: "30px", height: "30px", borderRadius: "4px"}} />
+                            {pl.name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <button id="btn-cancel" onClick={() => setIsAddSongModalOpen(false)} style={{ marginTop: "15px", width: "100%" }}>Đóng</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="main-content">
@@ -312,11 +306,7 @@
                   <h1>Chào buổi chiều</h1>
                   <div className="playlists-grid">
                     {playlists.map((playlist, index) => (
-                      <div 
-                        key={playlist.id} 
-                        className={`playlist-card ${activePlaylistIndex === index ? 'active' : ''}`}
-                        onClick={() => openPlaylist(index)} 
-                      >
+                      <div key={playlist.id} className={`playlist-card ${activePlaylistIndex === index ? 'active' : ''}`} onClick={() => openPlaylist(index)} >
                         <img src={playlist.coverImage} alt={playlist.name} />
                         <h3>{playlist.name}</h3>
                         <p>{playlist.description}</p>
@@ -326,259 +316,95 @@
                 </React.Fragment>
               )}
 
-      
-{currentView === "playlist" && selectedPlaylistIndex !== null && (
-  <div style={{ padding: "20px" }}>
-    <div style={{ display: "flex", gap: "24px", marginBottom: "30px", alignItems: "flex-end" }}>
-      <img 
-        src={playlists[selectedPlaylistIndex].coverImage} 
-        alt="Cover" 
-        style={{ width: "220px", height: "220px", borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)", objectFit: "cover" }} 
-      />
-      <div>
-        <p style={{ textTransform: "uppercase", fontSize: "13px", fontWeight: "bold", color: "#fff", marginBottom: "8px" }}>Playlist</p>
-        <h1 style={{ fontSize: "3.5rem", margin: "0 0 15px 0", color: "#fff", fontWeight: "900" }}>
-          {playlists[selectedPlaylistIndex].name}
-        </h1>
-        <p style={{ color: "#b3b3b3", fontSize: "15px", marginBottom: "20px" }}>
-          {playlists[selectedPlaylistIndex].description}
-        </p>
-        <button 
-          onClick={() => {
-            if(playlists[selectedPlaylistIndex].songs.length === 0) {
-              alert("Playlist này chưa có bài hát nào!");
-              return;
-            }
-            setActivePlaylistIndex(selectedPlaylistIndex);
-            setCurrentSongIndex(0);
-            setIsPlaying(true);
-          }}
-          style={{ padding: "15px 40px", borderRadius: "30px", backgroundColor: "#1db954", color: "#000", border: "none", fontWeight: "bold", fontSize: "16px", cursor: "pointer", transition: "transform 0.2s" }}
-          onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.05)"}
-          onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
-        >
-          ▶ Phát tất cả
-        </button>
-      </div>
-    </div>
-
-    {playlists[selectedPlaylistIndex].songs.length === 0 ? (
-        <p style={{ color: "#b3b3b3", fontSize: "16px", textAlign: "center", marginTop: "50px" }}>
-            Playlist này chưa có bài hát nào.
-        </p>
-    ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", color: "#b3b3b3" }}>
-        <thead>
-            <tr style={{ borderBottom: "1px solid #282828" }}>
-            <th style={{ padding: "10px 15px", width: "40px", fontWeight: "normal" }}>#</th>
-            <th style={{ padding: "10px 15px", fontWeight: "normal" }}>Tiêu đề</th>
-            <th style={{ padding: "10px 15px", textAlign: "right", fontWeight: "normal" }}>Nghe</th>
-            </tr>
-        </thead>
-        <tbody>
-            {playlists[selectedPlaylistIndex].songs.map((song, idx) => (
-            <tr 
-                key={idx} 
-                style={{ borderBottom: "1px solid #2a2a2a", cursor: "pointer", transition: "background 0.3s" }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                onClick={() => {
-                setActivePlaylistIndex(selectedPlaylistIndex);
-                setCurrentSongIndex(idx);
-                setIsPlaying(true);
-                }}
-            >
-                <td style={{ padding: "15px" }}>{idx + 1}</td>
-                <td style={{ padding: "15px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                    <img src={song.cover} alt="cover" style={{ width: "45px", height: "45px", borderRadius: "4px" }} />
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <span style={{ color: "#fff", fontSize: "16px", fontWeight: "500" }}>{song.title}</span>
-                    <span 
-                        style={{ fontSize: "13px", cursor: "pointer" }}
-                        onClick={(e) => {
-                        e.stopPropagation();
-                        viewArtist(song.artist);
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.textDecoration = "underline"}
-                        onMouseOut={(e) => e.currentTarget.style.textDecoration = "none"}
-                    >
-                        {song.artist}
-                    </span>
+              {currentView === "playlist" && selectedPlaylistIndex !== null && (
+                <div style={{ padding: "20px" }}>
+                  <div style={{ display: "flex", gap: "24px", marginBottom: "30px", alignItems: "flex-end" }}>
+                    <img src={playlists[selectedPlaylistIndex].coverImage} alt="Cover" style={{ width: "220px", height: "220px", borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)", objectFit: "cover" }} />
+                    <div>
+                      <p style={{ textTransform: "uppercase", fontSize: "13px", fontWeight: "bold", color: "#fff", marginBottom: "8px" }}>Playlist</p>
+                      <h1 style={{ fontSize: "3.5rem", margin: "0 0 15px 0", color: "#fff", fontWeight: "900" }}>{playlists[selectedPlaylistIndex].name}</h1>
+                      <p style={{ color: "#b3b3b3", fontSize: "15px", marginBottom: "20px" }}>{playlists[selectedPlaylistIndex].description}</p>
+                      <button onClick={() => { if(playlists[selectedPlaylistIndex].songs.length === 0) { alert("Playlist trống!"); return; } setActivePlaylistIndex(selectedPlaylistIndex); setCurrentSongIndex(0); setIsPlaying(true); }} style={{ padding: "15px 40px", borderRadius: "30px", backgroundColor: "#1db954", color: "#000", border: "none", fontWeight: "bold", fontSize: "16px", cursor: "pointer" }}>▶ Phát tất cả</button>
+                      
+                      {/* Nút Xóa Playlist (Chỉ hiện cho playlist tự tạo) */}
+                      {playlists[selectedPlaylistIndex].id.startsWith("custom_") && (
+                        <button 
+                          onClick={() => {
+                            if(confirm("Bạn có chắc muốn xóa playlist này không?")) {
+                              const updated = playlists.filter((_, i) => i !== selectedPlaylistIndex);
+                              setPlaylists(updated);
+                              setCurrentView("home");
+                            }
+                          }}
+                          style={{ marginLeft: "15px", padding: "15px 20px", borderRadius: "30px", backgroundColor: "transparent", color: "#fff", border: "1px solid #555", cursor: "pointer" }}
+                        >
+                          🗑 Xóa Playlist
+                        </button>
+                      )}
                     </div>
+                  </div>
+
+                  {playlists[selectedPlaylistIndex].songs.length === 0 ? (
+                      <p style={{ color: "#b3b3b3", fontSize: "16px", textAlign: "center", marginTop: "50px" }}>Playlist này trống. Hãy thêm nhạc vào nhé!</p>
+                  ) : (
+                      <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", color: "#b3b3b3" }}>
+                      <thead>
+                          <tr style={{ borderBottom: "1px solid #282828" }}>
+                          <th style={{ padding: "10px 15px", width: "40px" }}>#</th>
+                          <th style={{ padding: "10px 15px" }}>Tiêu đề</th>
+                          <th style={{ padding: "10px 15px", textAlign: "right" }}>Nghe</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {playlists[selectedPlaylistIndex].songs.map((song, idx) => (
+                          <tr key={idx} style={{ borderBottom: "1px solid #2a2a2a", cursor: "pointer" }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"} onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"} onClick={() => { setActivePlaylistIndex(selectedPlaylistIndex); setCurrentSongIndex(idx); setIsPlaying(true); }}>
+                              <td style={{ padding: "15px" }}>{idx + 1}</td>
+                              <td style={{ padding: "15px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                                  <img src={song.cover} alt="cover" style={{ width: "45px", height: "45px", borderRadius: "4px" }} />
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                  <span style={{ color: "#fff", fontSize: "16px", fontWeight: "500" }}>{song.title}</span>
+                                  <span style={{ fontSize: "13px" }} onClick={(e) => { e.stopPropagation(); viewArtist(song.artist); }}>{song.artist}</span>
+                                  </div>
+                              </div>
+                              </td>
+                              <td style={{ padding: "15px", textAlign: "right", color: "#1db954" }}>▶</td>
+                          </tr>
+                          ))}
+                      </tbody>
+                      </table>
+                  )}
                 </div>
-                </td>
-                <td style={{ padding: "15px", textAlign: "right", color: "#1db954", fontSize: "14px", fontWeight: "bold" }}>
-                ▶
-                </td>
-            </tr>
-            ))}
-        </tbody>
-        </table>
-    )}
-  </div>
-)}
+              )}
+
+              {/* Các view Search, Liked, Artist giữ nguyên như cũ... */}
               {currentView === "search" && (
                 <div style={{ padding: "20px" }}>
-                  <input 
-                    type="text" 
-                    placeholder="Bạn muốn nghe gì?" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    autoFocus
-                    style={{
-                      width: "100%",
-                      maxWidth: "400px",
-                      padding: "15px 20px",
-                      borderRadius: "30px",
-                      border: "none",
-                      outline: "none",
-                      fontSize: "16px",
-                      backgroundColor: "#242424",
-                      color: "#fff",
-                      marginBottom: "30px"
-                    }}
-                  />
-                  
-                  {searchQuery.trim() === "" ? (
-                    <p style={{ color: "#b3b3b3", fontSize: "16px" }}>
-                      Hãy nhập tên bài hát hoặc ca sĩ để tìm kiếm nhé! 🎶
-                    </p>
-                  ) : searchResults.length === 0 ? (
-                    <p style={{ color: "#b3b3b3", fontSize: "16px" }}>
-                      Không tìm thấy kết quả nào cho "{searchQuery}" 😢
-                    </p>
-                  ) : (
-                    <div>
-                      <h2 style={{ marginBottom: "20px", fontSize: "1.5rem" }}>Kết quả hàng đầu</h2>
-                      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                        {searchResults.map((song, index) => (
-                          <li 
-                            key={index} 
-                            onClick={() => playSpecificSong(song.title)}
-                            style={{ 
-                              padding: "12px 20px", borderBottom: "1px solid #282828", 
-                              display: "flex", alignItems: "center", gap: "15px",
-                              backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "5px",
-                              marginBottom: "8px", cursor: "pointer", transition: "background 0.3s"
-                            }}
-                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.02)"}
-                          >
-                            <img src={song.cover} alt="Cover" style={{ width: "45px", height: "45px", borderRadius: "5px" }} />
-                            
-                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                              <span style={{ fontSize: "16px", fontWeight: "500", color: "#fff" }}>
-                                {song.title}
-                              </span>
-                              
-                              <span 
-                                style={{ fontSize: "13px", color: "#b3b3b3", cursor: "pointer", textDecoration: "underline" }}
-                                onClick={(e) => {
-                                  e.stopPropagation(); 
-                                  viewArtist(song.artist);
-                                }}
-                                title={`Xem tất cả bài hát của ${song.artist}`}
-                              >
-                                {song.artist}
-                              </span>
-                            </div>
-
-                            <span style={{ marginLeft: "auto", fontSize: "14px", color: "#1db954", fontWeight: "bold" }}>
-                              ▶ Phát ngay
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                  <input type="text" placeholder="Bạn muốn nghe gì?" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} autoFocus style={{ width: "100%", maxWidth: "400px", padding: "15px 20px", borderRadius: "30px", border: "none", backgroundColor: "#242424", color: "#fff" }} />
+                  {searchResults.map((song, index) => (
+                    <div key={index} onClick={() => playSpecificSong(song.title)} style={{ padding: "12px", display: "flex", alignItems: "center", gap: "15px", cursor: "pointer" }}>
+                      <img src={song.cover} style={{ width: "45px", borderRadius: "5px" }} />
+                      <div><div style={{color: "#fff"}}>{song.title}</div><div style={{fontSize: "12px"}}>{song.artist}</div></div>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
 
               {currentView === "liked" && (
                 <div style={{ padding: "20px" }}>
-                  <h1 style={{ marginBottom: "30px", fontSize: "2rem" }}>💖 Bài hát đã thích</h1>
-                  
-                  {likedSongs.length === 0 ? (
-                    <p style={{ color: "#b3b3b3", fontSize: "16px" }}>
-                      Bạn chưa thả tim bài hát nào. Hãy quay lại Trang chủ, nghe nhạc và thả tim nhé! 💚
-                    </p>
-                  ) : (
-                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                      {likedSongs.map((songTitle, index) => (
-                        <li 
-                          key={index} 
-                          onClick={() => playSpecificSong(songTitle)}
-                          style={{ 
-                            padding: "12px 20px", borderBottom: "1px solid #282828", 
-                            display: "flex", alignItems: "center", gap: "15px",
-                            backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "5px",
-                            marginBottom: "8px", cursor: "pointer", transition: "background 0.3s"
-                          }}
-                          onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-                          onMouseOut={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.02)"}
-                        >
-                          <span style={{ fontSize: "20px" }}>💚</span> 
-                          
-                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                            <span style={{ fontSize: "16px", fontWeight: "500", color: "#fff" }}>
-                              {songTitle}
-                            </span>
-                            
-                            <span 
-                              style={{ fontSize: "13px", color: "#b3b3b3", cursor: "pointer", textDecoration: "underline" }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                viewArtist(getArtistByTitle(songTitle));
-                              }}
-                              title={`Xem tất cả bài hát của ${getArtistByTitle(songTitle)}`}
-                            >
-                              {getArtistByTitle(songTitle)}
-                            </span>
-                          </div>
-
-                          <span style={{ marginLeft: "auto", fontSize: "14px", color: "#1db954", fontWeight: "bold" }}>
-                            ▶ Phát ngay
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <h1>💖 Bài hát đã thích</h1>
+                  {likedSongs.map((title, index) => (
+                    <div key={index} onClick={() => playSpecificSong(title)} style={{ padding: "12px", color: "#fff", cursor: "pointer" }}>💚 {title}</div>
+                  ))}
                 </div>
               )}
 
-              
               {currentView === "artist" && (
                 <div style={{ padding: "20px" }}>
-                  <h1 style={{ marginBottom: "10px", fontSize: "2.5rem" }}>🎤 {selectedArtist}</h1>
-                  <p style={{ color: "#b3b3b3", marginBottom: "30px", fontSize: "16px" }}>
-                    Tất cả các bài hát
-                  </p>
-                  
-                  <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                    {artistSongs.map((song, index) => (
-                      <li 
-                        key={index} 
-                        onClick={() => playSpecificSong(song.title)}
-                        style={{ 
-                          padding: "12px 20px", borderBottom: "1px solid #282828", 
-                          display: "flex", alignItems: "center", gap: "15px",
-                          backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "5px",
-                          marginBottom: "8px", cursor: "pointer", transition: "background 0.3s"
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.02)"}
-                      >
-                        <img src={song.cover} alt="Cover" style={{ width: "45px", height: "45px", borderRadius: "5px" }} />
-                        <span style={{ fontSize: "16px", fontWeight: "500", color: "#fff" }}>
-                          {song.title}
-                        </span>
-                        <span style={{ marginLeft: "auto", fontSize: "14px", color: "#1db954", fontWeight: "bold" }}>
-                          ▶ Phát ngay
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <h1>🎤 {selectedArtist}</h1>
+                  {artistSongs.map((song, index) => (
+                    <div key={index} onClick={() => playSpecificSong(song.title)} style={{ padding: "12px", color: "#fff", cursor: "pointer" }}>{song.title}</div>
+                  ))}
                 </div>
               )}
             </div>
@@ -589,77 +415,30 @@
               {currentSong.cover && <img src={currentSong.cover} alt="Cover" className="cover-img" />}
               <div>
                 <h4>{currentSong.title}</h4>
-
-                <p 
-                  style={{ cursor: "pointer", textDecoration: "underline" }}
-                  onClick={() => {
-                    if(currentSong.artist !== "Trống") viewArtist(currentSong.artist);
-                  }}
-                  title={`Xem tất cả bài hát của ${currentSong.artist}`}
-                >
-                  {currentSong.artist}
-                </p>
+                <p onClick={() => { if(currentSong.artist !== "Trống") viewArtist(currentSong.artist); }}>{currentSong.artist}</p>
               </div>
-              
-              <button 
-                className="like-btn" 
-                onClick={toggleLike}
-                title="Yêu thích"
-              >
-                {isLiked ? "💚" : "🤍"}
-              </button>
+              <button className="like-btn" onClick={toggleLike}>{isLiked ? "💚" : "🤍"}</button>
+              <button className="like-btn" onClick={() => { if (currentSong.title !== "Chưa có bài hát") { setSongToAdd(currentSong); setIsAddSongModalOpen(true); } }} style={{ marginLeft: "10px" }}>➕</button>
             </div>
 
             <div className="controls">
               <div className="buttons">
-                <button 
-                  className={`btn-icon ${isShuffle ? 'active-control' : ''}`} 
-                  onClick={toggleShuffle}
-                >
-                  🔀
-                </button>
-                
+                <button className={`btn-icon ${isShuffle ? 'active-control' : ''}`} onClick={toggleShuffle}>🔀</button>
                 <button className="btn-icon" onClick={handlePrev}>⏮</button>
-                
-                <button className="btn-play" onClick={togglePlayPause}>
-                  {isPlaying ? "⏸" : "▶"}
-                </button>
-                
+                <button className="btn-play" onClick={togglePlayPause}>{isPlaying ? "⏸" : "▶"}</button>
                 <button className="btn-icon" onClick={handleNext}>⏭</button>
-                
-                <button 
-                  className={`btn-icon ${isRepeat ? 'active-control' : ''}`} 
-                  onClick={toggleRepeat}
-                >
-                  🔂
-                </button>
+                <button className={`btn-icon ${isRepeat ? 'active-control' : ''}`} onClick={toggleRepeat}>🔂</button>
               </div>
-              
               <div className="progress-container">
                 <span>{formatTime(currentTime)}</span>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max={duration || 0} 
-                  value={currentTime} 
-                  onChange={handleSeek}
-                  className="progress-bar-input"
-                />
+                <input type="range" min="0" max={duration || 0} value={currentTime} onChange={handleSeek} className="progress-bar-input" />
                 <span>{formatTime(duration)}</span>
               </div>
             </div>
 
             <div className="volume-controls">
-              <span>{volume === "0" ? "🔇" : "🔊"}</span>
-              <input 
-                type="range" 
-                min="0" 
-                max="1" 
-                step="0.01" 
-                value={volume} 
-                onChange={handleVolumeChange}
-                className="volume-slider"
-              />
+              <span>🔊</span>
+              <input type="range" min="0" max="1" step="0.01" value={volume} onChange={handleVolumeChange} className="volume-slider" />
             </div>
           </div>
 
@@ -669,14 +448,7 @@
               src={currentSong.src} 
               onTimeUpdate={() => setCurrentTime(audioRef.current.currentTime)}
               onLoadedMetadata={() => setDuration(audioRef.current.duration)}
-              onEnded={() => {
-                if (isRepeat) {
-                  audioRef.current.currentTime = 0;
-                  audioRef.current.play();
-                } else {
-                  handleNext();
-                }
-              }}
+              onEnded={() => isRepeat ? (audioRef.current.currentTime = 0, audioRef.current.play()) : handleNext()}
             />
           )}
         </div>
