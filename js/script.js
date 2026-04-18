@@ -36,7 +36,24 @@ const allPlaylists = [
       { title: "Người im lặng gặp người hay nói", artist: "HIEUTHUHAI", src: "https://res.cloudinary.com/dzisjnhfj/video/upload/v1776078850/nguoi-im-lang-gap-nguoi-hay-noi_sbb17g.mp3", cover: "./image/hieu-thu-hai.jpg" },
       { title: "Nghe Như Tình Yêu", artist: "HIEUTHUHAI", src: "https://res.cloudinary.com/dzisjnhfj/video/upload/v1776078828/nghe-nhu-tinh-yeu_bvwubg.mp3", cover: "./image/hieu-thu-hai.jpg"},
     ]
+  },
+  {
+    id: "manta",
+    name: "Vanatice - Manta",
+    description: "",
+    coverImage: "./image/manta.jpg",
+    songs: [
+      {
+        title: "Manta",
+        artist: "Vanatice",
+        src: "https://res.cloudinary.com/dbokviwbv/video/upload/v1776532080/Manta_pfqba5.mp3",
+        cover: "./image/manta.jpg",
+        lyrics: ""
+      },
+    ]
   }
+  
+  
 ];
 
 const MusicPlayer = () => {
