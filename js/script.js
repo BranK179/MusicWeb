@@ -51,9 +51,82 @@ const allPlaylists = [
         lyrics: ""
       },
     ]
-  }
-  
-  
+  },
+  {
+    id: "foward-motion",
+    name: "Glacier - Foward Motion",
+    description: "",
+    coverImage: "./image/foward-motion.jpg",
+    songs: [
+      {
+        title: "Foward Motion",
+        artist: "Glacier",
+        src: "https://res.cloudinary.com/dbokviwbv/video/upload/v1776533684/Forward_Motion_j6bguc.mp3",
+        cover: "./image/foward-motion.jpg",
+        lyrics: ""
+      },
+    ]
+  },
+  {
+    id: "hyper-beam",
+    name: "Prezzur - Hyper Beam",
+    description: "",
+    coverImage: "./image/rushdown6.jpg",
+    songs: [
+      {
+        title: "Hyper Beam",
+        artist: "Prezzur",
+        src: "https://res.cloudinary.com/dbokviwbv/video/upload/v1776533957/Hyper_Beam_a1gu52.mp3",
+        cover: "./image/rushdown6.jpg",
+        lyrics: ""
+      },
+    ]
+  },
+  {
+    id: "halo",
+    name: "Distayne - Halo",
+    description: "",
+    coverImage: "./image/rushdown6.jpg",
+    songs: [
+      {
+        title: "Halo",
+        artist: "Distayne",
+        src: "https://res.cloudinary.com/dbokviwbv/video/upload/v1776534074/Distayne_-_Halo-1892888052_riwjfo.mp3",
+        cover: "./image/rushdown6.jpg",
+        lyrics: ""
+      },
+    ]
+  },
+  {
+    id: "spectral-artillery",
+    name: "Agente.001 - Spectral Artillery",
+    description: "",
+    coverImage: "./image/rushdown6.jpg",
+    songs: [
+      {
+        title: "Spectral Artillery",
+        artist: "Agente.001",
+        src: "https://res.cloudinary.com/dbokviwbv/video/upload/v1776534310/Agente.001_-_Spectral_Artillery-728480775_xash2f.mp3",
+        cover: "./image/rushdown6.jpg",
+        lyrics: ""
+      },
+    ]
+  },
+  {
+    id: "suit-up",
+    name: "Distayne - Suit Up",
+    description: "",
+    coverImage: "./image/exobolt010.jpg",
+    songs: [
+      {
+        title: "Suit Up",
+        artist: "Distayne",
+        src: "https://res.cloudinary.com/dbokviwbv/video/upload/v1776534465/Suit_Up-1711141651_pijepp.mp3",
+        cover: "./image/exobolt010.jpg",
+        lyrics: ""
+      },
+    ]
+  },
 ];
 
 const MusicPlayer = () => {
