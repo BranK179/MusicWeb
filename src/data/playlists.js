@@ -3,18 +3,18 @@ export const allPlaylists = [
     id: "sontung",
     name: "Sơn Tùng M-TP Mix",
     description: "Tuyển tập những bài hát hay nhất",
-    coverImage: "/image/son-tung.jpg",
+    coverImage: '${import.meta.env.BASE_URL}image/son-tung.jpg',
     songs: [
       { 
         title: "Chúng Ta Của Hiện Tại", 
         artist: "Sơn Tùng M-TP", 
         src: "https://res.cloudinary.com/dzisjnhfj/video/upload/v1776077112/chung-ta-cua-hien-tai_ag6p0h.mp3", 
-        cover: "/image/son-tung.jpg",
+        cover: '${import.meta.env.BASE_URL}image/son-tung.jpg',
         lyrics: "Mùa thu mang giấc mơ quay về\nVẫn nguyên vẹn như hôm nào\nLá bay theo gió xôn xao\nChốn xưa anh chờ..."
       },
-      { title: "Muộn Rồi Mà Sao Còn", artist: "Sơn Tùng M-TP", src: "https://res.cloudinary.com/dzisjnhfj/video/upload/v1776077246/muon-roi-sao-ma-con_efuwqp.mp3", cover: "/image/son-tung.jpg"},
-      { title: "Nơi Này Có Anh", artist: "Sơn Tùng M-TP", src: "https://res.cloudinary.com/dzisjnhfj/video/upload/v1776077632/noi-nay-co-anh_mrzc22.mp3", cover: "/image/son-tung.jpg"},
-      { title: "Đừng Làm Trái Tim Anh Đau", artist: "Sơn Tùng M-TP", src: "https://res.cloudinary.com/dzisjnhfj/video/upload/v1776077659/son-tung-mtp-Dunglamtraitimanhdau_iuf6kb.mp3", cover: "/image/son-tung.jpg"},
+      { title: "Muộn Rồi Mà Sao Còn", artist: "Sơn Tùng M-TP", src: "https://res.cloudinary.com/dzisjnhfj/video/upload/v1776077246/muon-roi-sao-ma-con_efuwqp.mp3", cover: '${import.meta.env.BASE_URL}image/son-tung.jpg'},
+      { title: "Nơi Này Có Anh", artist: "Sơn Tùng M-TP", src: "https://res.cloudinary.com/dzisjnhfj/video/upload/v1776077632/noi-nay-co-anh_mrzc22.mp3", cover: '${import.meta.env.BASE_URL}image/son-tung.jpg'},
+      { title: "Đừng Làm Trái Tim Anh Đau", artist: "Sơn Tùng M-TP", src: "https://res.cloudinary.com/dzisjnhfj/video/upload/v1776077659/son-tung-mtp-Dunglamtraitimanhdau_iuf6kb.mp3", cover: '${import.meta.env.BASE_URL}image/son-tung.jpg'},
     ]
   },
   {
